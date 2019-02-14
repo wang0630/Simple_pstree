@@ -1,0 +1,54 @@
+#include <linux/kernel.h>
+#include <linux/init.h>
+#include <linux/skbuff.h>
+#include <linux/module.h>
+#include <linux/netlink.h>
+#include <net/sock.h>
+static struct sock* kernelSock;
+
+static void sendMsg(int len,int pid)
+{
+    struct sk_buff* skbtmp;
+    struct nlmsghdr* nl;
+    skbtmp=alloc_skb(len,GFP_KERNEL);
+    if(!skbtmp) printk(KERE_ERR "alloc sk_buffer error!");
+    nl=nlmsg_put(skbtmp,0,0,0,len,0); // Add new message to sk_buff
+    
+}
+
+static void receiveMsg(struct sk_buff* skb) 
+{
+    struct sk_buff* skbtmp;
+    char str[50];
+    struct nlmsghdr* nl;
+    skbtmp=skb_get(skb); // Return the reference of the sk_buffer
+    nl=nlmsg_hdr(skb); // nlmsg_hdr() returns the actual netlink message
+    // NLMSG_DATA(nl) returns the pointer points to the payload area of the message
+    // memcpy(): copy the sizeof(str) bytes from location pointed to by NLMSG_DATA(nl) to str
+    memcpy(str,NLMSG_DATA(nl),sizeof(str));
+    printk(KERN_INFO "Print message from pid with size: %s from pid %d with size %d\n",str,nl->nlmsg_pid,nl->nlmsg_len);
+    sendMsg(nl->nlmsg_len,nl->nlmsg_pid);
+}
+
+
+
+static __init int ksimple_init(void) {
+    struct netlink_kernel_cfg cfg;
+    memset(&cfg,0,sizeof(cfg));
+    cfg.input=receiveMsg;
+    kernelSock=netlink_kernel_create(&init_net,NETLINK_USERSOCK,&cfg);
+    return 0;
+}
+
+
+
+static __exit void ksimple_exit(void)
+{
+    netlink_kernel_release(kernelSock);
+}
+
+module_init(ksimple_init);
+module_exit(ksimple_exit);
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Wang0630");
